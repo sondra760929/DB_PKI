@@ -96,9 +96,11 @@ public class App {
 
     // private String TSA_URL =
     // "https://tsatest.tradesign.net:8093/service/timestamp/issue";
-    private String TSA_URL = "https://tsa.tradesign.net:8093/service/timestamp/issue";
-    private String TSA_ID = "test";
-    private String TSA_PWD = "testPwd";
+    // "http://tsa.tradesign.net:8090/service/timestamp/issue"
+    // "https://tsa.tradesign.net:8093/service/timestamp/issue"
+    private String TSA_URL = "http://tsa.tradesign.net:8090/service/timestamp/issue";
+    private String TSA_ID = "dgbook_test";
+    private String TSA_PWD = "dgbook_pwd";
 
     // cert
     private static final String CERT_PATH = "data/config/ServerCert/signCert.der";
