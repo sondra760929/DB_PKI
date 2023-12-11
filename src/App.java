@@ -47,6 +47,7 @@ import java.util.stream.Stream;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
+import javax.swing.JDialog;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -71,9 +72,29 @@ import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableColumnModel;
 
+class MyDialog extends JDialog{
+    JTextField tf = new JTextField(10);
+    JButton jb = new JButton("OK");
+
+    public MyDialog(JFrame frame, String title){
+        super(frame, title);
+        setLayout(new FlowLayout());
+        add(tf);
+        add(jb);
+        setSize(200, 100);
+        jb.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e){
+                setVisible(false);
+            }
+        });
+    }
+}
+
+   
 public class App {
     public boolean useTSA = false;
     // files
+    public String pwd_file = "./data/pwd.txt";
     public String dir = "./data/test/" + getClass().getSimpleName();
     public String ORIGINAL = "./data/test/hello.pdf";
 
@@ -99,13 +120,13 @@ public class App {
     // "http://tsa.tradesign.net:8090/service/timestamp/issue"
     // "https://tsa.tradesign.net:8093/service/timestamp/issue"
     private String TSA_URL = "http://tsa.tradesign.net:8090/service/timestamp/issue";
-    private String TSA_ID = "dgbook_test";
+    private String TSA_ID = "dgbook";
     private String TSA_PWD = "dgbook_pwd";
 
     // cert
     private static final String CERT_PATH = "data/config/ServerCert/signCert.der";
     private static final String PRIV_PATH = "data/config/ServerCert/signPri.key";
-    private static final String PRIV_PWD = "asdfasdf";
+    private String PRIV_PWD = "*ghkdwkdrns7879";
     public static byte[] encPrivateKey;
     public static byte[] signerCert;
     public static char[] signerCertPassword;
@@ -116,8 +137,19 @@ public class App {
     // private static final String TSA_CERT_PATH =
     // "data/config/ServerCert/TradeSign_TSA4.der";
 
-    private String UNSIGNED_ATTR_OID = "1.2.410.200012.1.3.1.1"; // 시큐센 생체 정보
+    // private String UNSIGNED_ATTR_OID = "1.2.410.200012.1.3.1.1"; // 시큐센 생체 정보
+    private String UNSIGNED_ATTR_OID = "1.2.410.200012.1.1.501"; // 디지북 전자문서 전용 OID
+        
     public String testOutputDir = "./data/test/" + getClass().getSimpleName();
+
+    public static String getPrintStackTrace(Exception e) {
+         
+        StringWriter errors = new StringWriter();
+        e.printStackTrace(new PrintWriter(errors));
+         
+        return errors.toString();
+         
+    }
 
     /**
      * 
@@ -141,6 +173,8 @@ public class App {
         FileInputStream fin = new FileInputStream(src);
         PdfReader reader = new PdfReader(fin, "!2qwsaqwsa".getBytes());
 
+        Rectangle page_size = reader.getPageSize(1);
+        
         // int contentEstimated = 20240;
         PdfPkcs7 pdfPkcs7Gen = new PdfPkcs7(reader, append);
         // pdfPkcs7Gen.setContentEstimated(contentEstimated);
@@ -160,13 +194,28 @@ public class App {
          */
 
         // 페이지 왼쪽 아래 코너 좌표 : (0,0)
-        Rectangle imgRect = new Rectangle(400, 700, 520, 800);
+        // Rectangle imgRect = new Rectangle(400, 700, 520, 800);
+        float p_width = page_size.getWidth();
+        float p_height = page_size.getHeight();
+        float i_length = 50.0f;
+        float mark_scale = 0.2f;
+        if(p_width > i_length * 12.0f)
+        {
+            i_length = i_length * 2.0f;
+            mark_scale = mark_scale * 2.0f;
+        }
+
+        Rectangle imgRect = new Rectangle(
+            p_width - i_length - i_length, 
+            p_height - i_length - i_length, 
+            p_width- i_length, 
+            p_height - i_length);
 
         // OPTION1
         // pkcs7.setVisibleSignature(Image.getInstance(RESOURCE), 1, imgRect);
 
         // OPTION2
-        FileInputStream fisImg = new FileInputStream("data/img/ktnet_tsa.png");
+        FileInputStream fisImg = inlucdeTST ? new FileInputStream("data/img/dgbook_tsa.png") : new FileInputStream("data/img/dgbook.png");
         byte[] imgBytes = IOUtils.toByteArray(fisImg);
         Image img = PngImage.getImage(imgBytes);
 
@@ -174,27 +223,31 @@ public class App {
 
         // layer1 : adobe 검증성공 이미지 크기/사이즈 설정.
         TransformMatrix layer1TransMatrix = new TransformMatrix();
-        layer1TransMatrix.setXTrans(20);
-        layer1TransMatrix.setYTrans(20);
-        layer1TransMatrix.setXScale((float) 0.5);
-        layer1TransMatrix.setYScale((float) 0.5);
+        layer1TransMatrix.setXTrans(i_length / 4.0f);
+        layer1TransMatrix.setYTrans(i_length / 5.0f);
+        layer1TransMatrix.setXScale(mark_scale);
+        layer1TransMatrix.setYScale(mark_scale);
         pdfPkcs7Gen.setLayer1TransMatrix(layer1TransMatrix);
 
         // layer3 : adobe 검증실패 이미지 크기/사이즈 설정.
         TransformMatrix layer3TransMatrix = new TransformMatrix();
-        layer3TransMatrix.setXTrans(20);
-        layer3TransMatrix.setYTrans(20);
-        layer3TransMatrix.setXScale((float) 0.5);
-        layer3TransMatrix.setYScale((float) 0.5);
+        layer3TransMatrix.setXTrans(i_length / 4.0f);
+        layer3TransMatrix.setYTrans(i_length / 5.0f);
+        layer3TransMatrix.setXScale(mark_scale);
+        layer3TransMatrix.setYScale(mark_scale);
         pdfPkcs7Gen.setLayer3TransMatrix(layer3TransMatrix);
 
         if (withText) {
-            Rectangle textRect = new Rectangle(405, 660, 540, 680);
+            Rectangle textRect = new Rectangle(
+                p_width- i_length - i_length, 
+                p_height - i_length - i_length - (i_length / 3.0f), 
+                p_width- i_length, 
+                p_height - i_length - i_length);
             SimpleDateFormat sd = new SimpleDateFormat("날짜 : yyyy.MM.dd HH:mm:ss z");
             String text = sd.format(new Date());
 
             BaseFont objBaseFont = BaseFont.createFont("data/font/gulim.ttc,0", BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
-            Font font = new Font(objBaseFont, 12);
+            Font font = new Font(objBaseFont, 6);
             // Font font = FontFactory.getFont("Helvetica", 11);
 
             pdfPkcs7Gen.setVisibleText(text, font, textRect);
@@ -349,6 +402,21 @@ public class App {
         return line;
     }
 
+    public boolean readPWD(){
+        BufferedReader reader;
+        String line = "";
+        try {
+            reader = new BufferedReader(new FileReader(pwd_file));
+            line = reader.readLine();
+            reader.close();
+            PRIV_PWD = line;
+            return true;
+        } catch (IOException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
     public String readTargetDir() {
         BufferedReader reader;
         String line = "";
@@ -420,6 +488,7 @@ public class App {
             // TODO Auto-generated catch block
             e.printStackTrace();
         }
+        readPWD();
         signerCertPassword = PRIV_PWD.toCharArray();
 
         // File file = new File(dir);
@@ -649,8 +718,8 @@ public class App {
         }
 
         public void runSelectFile() {
+            int sel_row = table.getSelectedRow();
             try {
-                int sel_row = table.getSelectedRow();
                 if (sel_row > -1) {
                     String sel_file_path = table.getValueAt(sel_row, 1).toString();
                     File f = new File(sel_file_path);
@@ -661,14 +730,16 @@ public class App {
                         String target_temp_path = p_f.getParentFile().toString();
                         p_f = new File(target_temp_path);
                         p_f.mkdirs();
-                        current_app.signPdf(sel_file_path, target_path, current_app.useTSA, false, current_app.useTSA,
+                        current_app.signPdf(sel_file_path, target_path, current_app.useTSA, true, current_app.useTSA,
                                 sigName);
                         table.setValueAt("O", sel_row, 2);
                     }
                 }
             } catch (Exception e1) {
                 // TODO Auto-generated catch block
-                e1.printStackTrace();
+                // e1.printStackTrace();
+                String except_string = "X" + getPrintStackTrace(e1);
+                table.setValueAt(except_string, sel_row, 2);
             }
         }
 
@@ -691,15 +762,16 @@ public class App {
                                     String target_temp_path = p_f.getParentFile().toString();
                                     p_f = new File(target_temp_path);
                                     p_f.mkdirs();
-                                    current_app.signPdf(sel_file_path, target_path, current_app.useTSA, false,
+                                    current_app.signPdf(sel_file_path, target_path, current_app.useTSA, true,
                                             current_app.useTSA, sigName);
                                     table.setValueAt("O", sel_row, 2);
                                 }
                             }
                         } catch (Exception e1) {
                             // TODO Auto-generated catch block
-                            e1.printStackTrace();
-                            table.setValueAt("X", sel_row, 2);
+                            // e1.printStackTrace();
+                            String except_string = "X" + getPrintStackTrace(e1);
+                            table.setValueAt(except_string, sel_row, 2);
                         }
                         jProgressBar1.setValue((sel_row + 1) * 100 / row_count);
                         try {
